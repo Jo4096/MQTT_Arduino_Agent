@@ -1,0 +1,27 @@
+.vscode/          
+.pio/             
+/build/           
+*.hex
+*.bin
+*.elf
+*.map
+*.a
+*.lib
+
+# Arquivos de Arduino IDE
+*.ino.hex
+*.ino.bin
+*.ino.elf
+*.ino.map
+*.o
+*.d
+*.gcno
+*.gcda
+*.gcov
+*.lss
+*.sym
+*.su
+
+# Arquivos de configurações de usuário
+secrets.h         # Um arquivo comum para guardar credenciais privadas
+config.h          # Pode ser usado para configurações de usuário
