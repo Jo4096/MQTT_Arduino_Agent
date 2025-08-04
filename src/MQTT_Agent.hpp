@@ -30,10 +30,12 @@ private:
     const char* ssid;
     const char* password;
     const char* mqttServer;
-    const char* mqttUsername;  // Variável para o nome de utilizador
-    const char* mqttPassword;  // Variável para a palavra-passe
+    const char* mqttUsername;
+    const char* mqttPassword;
     const char* deviceId;
     int mqttPort;
+    long lastPingTime = 0;
+    int pingPeriod;
 
     WiFiClient wifiClient;
     PubSubClient mqttClient;
@@ -53,20 +55,25 @@ private:
     void handleMessage(String topic, String payload);
     void addKnownDevice(const String& deviceId);
 
-public:
-    // Construtor atualizado para aceitar o username e password
-    MQTT_Agent(const char* ssid, const char* password, const char* mqttServer, const char* mqttUsername, const char* mqttPassword, const char* deviceId, int port = 1883);
+    // Métodos internos para ping e pong
+    void _handle_ping_command(String from, String topic, JsonDocument& doc);
+    void _send_ping();
 
-    void begin();
+public:
+    MQTT_Agent(const char* ssid, const char* password, const char* mqttServer, const char* mqttUsername, const char* mqttPassword, const char* deviceId, int port = 1883, int pingPeriod = 30000);
+
+    void begin(bool enablePing=true);
     void loop();
     void addSubscriptionTopic(const char* topic);
     void publish(const String& topic, const String& message);
     void publishToDevice(const String& devId, const String& message);
+    void publishToDeviceFormatted(const String& devId, const String& command, const String& message);
     void setOnMessageCallback(std::function<void(String, String, String)> callback);
     void registerCommand(const String& name, std::function<void(String, String, JsonDocument&)> handler);
     const char* getDeviceId() { return deviceId; }
-
-    JsonDocument createStandardJson(const String& comand, const String& message);
 };
+
+void default_PongResponse(String from, String topic, JsonDocument& doc);
+
 
 #endif
