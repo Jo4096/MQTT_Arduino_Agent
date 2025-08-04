@@ -75,5 +75,4 @@ public:
 
 void default_PongResponse(String from, String topic, JsonDocument& doc);
 
-
 #endif
