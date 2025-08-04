@@ -1,9 +1,8 @@
 #include "MQTT_Agent.hpp"
 
-static MQTT_Agent* instance = nullptr;
+static MQTT_Agent *instance = nullptr;
 
-// Construtor atualizado
-MQTT_Agent::MQTT_Agent(const char* ssid, const char* password, const char* mqttServer, const char* mqttUsername, const char* mqttPassword, const char* deviceId, int port, int pingPeriod)
+MQTT_Agent::MQTT_Agent(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port, int pingPeriod)
     : ssid(ssid), password(password), mqttServer(mqttServer), mqttUsername(mqttUsername), mqttPassword(mqttPassword), deviceId(deviceId), mqttPort(port), pingPeriod(pingPeriod),
       mqttClient(wifiClient), subscribedCount(0), commandCount(0), knownCount(0)
 {
@@ -12,7 +11,6 @@ MQTT_Agent::MQTT_Agent(const char* ssid, const char* password, const char* mqttS
 
 void MQTT_Agent::begin(bool enablePing)
 {
-    // ... (rest of the begin method is the same)
     WiFi.begin(ssid, password);
     Serial.print("\n[INFO] A ligar a ");
     Serial.println(ssid);
@@ -35,7 +33,7 @@ void MQTT_Agent::begin(bool enablePing)
             Serial.println("[MQTT] Ligado com sucesso.");
             for (int i = 0; i < subscribedCount; ++i)
             {
-                if(subscribedTopics[i] != nullptr)
+                if (subscribedTopics[i] != nullptr)
                 {
                     mqttClient.subscribe(subscribedTopics[i]);
                     Serial.printf("[MQTT] Subscrito a: %s\n", subscribedTopics[i]);
@@ -50,24 +48,23 @@ void MQTT_Agent::begin(bool enablePing)
         }
     }
 
-    // Registra os comandos internos de ping e pong
-    if(enablePing)
+    if (enablePing)
     {
-        registerCommand("ping", [this](String from, String topic, JsonDocument& doc) {
-            this->_handle_ping_command(from, topic, doc);
-        });
+        registerCommand("ping", [this](String from, String topic, JsonDocument &doc)
+                        { this->_handle_ping_command(from, topic, doc); });
     }
 
-
-    // Adiciona a subscrição para o tópico de broadcast se ainda não estiver presente
     bool alreadySubscribed = false;
-    for(int i = 0; i < subscribedCount; ++i) {
-        if(strcmp(subscribedTopics[i], "devices/all/data") == 0) {
+    for (int i = 0; i < subscribedCount; ++i)
+    {
+        if (strcmp(subscribedTopics[i], "devices/all/data") == 0)
+        {
             alreadySubscribed = true;
             break;
         }
     }
-    if (!alreadySubscribed) {
+    if (!alreadySubscribed)
+    {
         addSubscriptionTopic("devices/all/data");
         mqttClient.subscribe("devices/all/data");
         Serial.println("[MQTT] Subscrito a: devices/all/data");
@@ -77,14 +74,14 @@ void MQTT_Agent::begin(bool enablePing)
 void MQTT_Agent::loop()
 {
     mqttClient.loop();
-    if(millis() - lastPingTime >= pingPeriod)
+    if (millis() - lastPingTime >= pingPeriod)
     {
         _send_ping();
         lastPingTime = millis();
     }
 }
 
-void MQTT_Agent::addSubscriptionTopic(const char* topic)
+void MQTT_Agent::addSubscriptionTopic(const char *topic)
 {
     if (subscribedCount < MAX_TOPICS)
     {
@@ -96,18 +93,18 @@ void MQTT_Agent::addSubscriptionTopic(const char* topic)
     }
 }
 
-void MQTT_Agent::publish(const String& topic, const String& message)
+void MQTT_Agent::publish(const String &topic, const String &message)
 {
     mqttClient.publish(topic.c_str(), message.c_str());
 }
 
-void MQTT_Agent::publishToDevice(const String& devId, const String& message)
+void MQTT_Agent::publishToDevice(const String &devId, const String &message)
 {
     String topic = "devices/" + devId + "/cmd";
     publish(topic, message);
 }
 
-void MQTT_Agent::publishToDeviceFormatted(const String& devId, const String& command, const String& message)
+void MQTT_Agent::publishToDeviceFormatted(const String &devId, const String &command, const String &message)
 {
     JsonDocument doc;
     doc["sender_id"] = deviceId;
@@ -125,7 +122,7 @@ void MQTT_Agent::setOnMessageCallback(std::function<void(String, String, String)
     onMessageCallback = callback;
 }
 
-void MQTT_Agent::registerCommand(const String& name, std::function<void(String, String, JsonDocument&)> handler)
+void MQTT_Agent::registerCommand(const String &name, std::function<void(String, String, JsonDocument &)> handler)
 {
     if (commandCount < MAX_COMMANDS)
     {
@@ -137,7 +134,7 @@ void MQTT_Agent::registerCommand(const String& name, std::function<void(String, 
     }
 }
 
-void MQTT_Agent::internalCallback(char* topic, byte* payload, unsigned int length)
+void MQTT_Agent::internalCallback(char *topic, byte *payload, unsigned int length)
 {
     if (instance)
     {
@@ -151,11 +148,12 @@ void MQTT_Agent::internalCallback(char* topic, byte* payload, unsigned int lengt
     }
 }
 
-void MQTT_Agent::addKnownDevice(const String& deviceId)
+void MQTT_Agent::addKnownDevice(const String &deviceId)
 {
     for (int i = 0; i < knownCount; ++i)
     {
-        if (knownDevices[i] == deviceId) return;
+        if (knownDevices[i] == deviceId)
+            return;
     }
     if (knownCount < MAX_KNOWN_DEVICES)
     {
@@ -170,7 +168,6 @@ void MQTT_Agent::addKnownDevice(const String& deviceId)
 
 void MQTT_Agent::handleMessage(String topic, String payload)
 {
-    // ... (rest of the handleMessage method is the same)
     int start = topic.indexOf('/') + 1;
     int end = topic.indexOf('/', start);
     if (start == 0 || end == -1)
@@ -226,26 +223,29 @@ void MQTT_Agent::handleMessage(String topic, String payload)
     }
 }
 
-void MQTT_Agent::_handle_ping_command(String from, String topic, JsonDocument& doc) {
-    if (from != String(deviceId)) {
+void MQTT_Agent::_handle_ping_command(String from, String topic, JsonDocument &doc)
+{
+    if (from != String(deviceId))
+    {
         Serial.printf("[PONG] Respondido pong para %s\n", from.c_str());
         publishToDeviceFormatted(from, "pong", "Pong! Estou online.");
     }
 }
 
-void MQTT_Agent::_send_ping() {
+void MQTT_Agent::_send_ping()
+{
     Serial.println("[PING] Enviado ping broadcast");
     JsonDocument doc;
     doc["command"] = "ping";
     doc["sender_id"] = deviceId;
     doc["timestamp"] = millis();
-    
+
     String payload;
     serializeJson(doc, payload);
     publish("devices/all/data", payload);
 }
 
-void default_PongResponse(String from, String topic, JsonDocument& doc)
+void default_PongResponse(String from, String topic, JsonDocument &doc)
 {
     String message = doc["message"] | "sem mensagem";
     Serial.printf("[CMD] 'pong' recebido de %s: %s\n", from.c_str(), message.c_str());
