@@ -30,7 +30,7 @@ MQTT_Agent Agent(ssid, password, mqttServer, mqttUsername, mqttPassword, deviceI
 // "payload" é o conteúdo da mensagem.
 void onMessage(String from, String topic, String payload)
 {
-  // Imprime a resposta recebida no monitor serial.
+  // Imprime a resposta recebida, caso queiras processar a informação sem ser por jsons prefeitos por agents (python ou outras esp) implementa o teu codigo aqui.
   Serial.printf("[RESPOSTA] de %s: %s\n", from.c_str(), payload.c_str());
 }
 
@@ -57,7 +57,7 @@ void ligar_luz(String from, String topic, JsonDocument& doc)
   Serial.print("] -> Mensagem: ");
   Serial.println(message);
   
-  // Aqui você adicionaria o código para ligar a luz (ex: digitalWrite) dependendo dos conteudos de "message"
+  // Aqui adicionarias o código para ligar a luz (ex: digitalWrite) dependendo dos conteudos de "message"
 }
 
 // Função que é executada quando o comando "ler_temperatura" é recebido.
