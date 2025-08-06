@@ -4,7 +4,7 @@ static MQTT_Agent *instance = nullptr;
 
 MQTT_Agent::MQTT_Agent(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port, int pingPeriod)
     : ssid(ssid), password(password), mqttServer(mqttServer), mqttUsername(mqttUsername), mqttPassword(mqttPassword), deviceId(deviceId), mqttPort(port), pingPeriod(pingPeriod),
-      mqttClient(wifiClient), subscribedCount(0), commandCount(0), knownCount(0)
+      mqttClient(wifiClient)
 {
     instance = this;
 }
@@ -31,12 +31,12 @@ void MQTT_Agent::begin(bool enablePing)
         if (mqttClient.connect(deviceId, mqttUsername, mqttPassword))
         {
             Serial.println("[MQTT] Ligado com sucesso.");
-            for (int i = 0; i < subscribedCount; ++i)
+            for (int i = 0; i < subscribedTopics.size(); ++i)
             {
                 if (subscribedTopics[i] != nullptr)
                 {
-                    mqttClient.subscribe(subscribedTopics[i]);
-                    Serial.printf("[MQTT] Subscrito a: %s\n", subscribedTopics[i]);
+                    mqttClient.subscribe(subscribedTopics[i].c_str());
+                    Serial.printf("[MQTT] Subscrito a: %s\n", subscribedTopics[i].c_str());
                 }
             }
         }
@@ -55,9 +55,9 @@ void MQTT_Agent::begin(bool enablePing)
     }
 
     bool alreadySubscribed = false;
-    for (int i = 0; i < subscribedCount; ++i)
+    for (int i = 0; i < subscribedTopics.size(); ++i)
     {
-        if (strcmp(subscribedTopics[i], "devices/all/data") == 0)
+        if (strcmp(subscribedTopics[i].c_str(), "devices/all/data") == 0)
         {
             alreadySubscribed = true;
             break;
@@ -81,11 +81,11 @@ void MQTT_Agent::loop()
     }
 }
 
-void MQTT_Agent::addSubscriptionTopic(const char *topic)
+void MQTT_Agent::addSubscriptionTopic(String topic)
 {
-    if (subscribedCount < MAX_TOPICS)
+    if (subscribedTopics.size() < MAX_TOPICS)
     {
-        subscribedTopics[subscribedCount++] = topic;
+        subscribedTopics.push_back(topic);
     }
     else
     {
@@ -124,9 +124,9 @@ void MQTT_Agent::setOnMessageCallback(std::function<void(String, String, String)
 
 void MQTT_Agent::registerCommand(const String &name, std::function<void(String, String, JsonDocument &)> handler)
 {
-    if (commandCount < MAX_COMMANDS)
+    if (commandHandlers.size() < MAX_COMMANDS)
     {
-        commandHandlers[commandCount++] = {name, handler};
+        commandHandlers.push_back({name, handler});
     }
     else
     {
@@ -150,14 +150,20 @@ void MQTT_Agent::internalCallback(char *topic, byte *payload, unsigned int lengt
 
 void MQTT_Agent::addKnownDevice(const String &deviceId)
 {
-    for (int i = 0; i < knownCount; ++i)
+    if(strcmp(deviceId.c_str(), this->deviceId) == 0)
+    {
+        return;
+    }
+
+    for (int i = 0; i < knownDevices.size(); ++i)
     {
         if (knownDevices[i] == deviceId)
             return;
     }
-    if (knownCount < MAX_KNOWN_DEVICES)
+
+    if (knownDevices.size() < MAX_KNOWN_DEVICES)
     {
-        knownDevices[knownCount++] = deviceId;
+        knownDevices.push_back(deviceId);
         Serial.println("[NOVO DISPOSITIVO] " + deviceId);
     }
     else
@@ -196,11 +202,12 @@ void MQTT_Agent::handleMessage(String topic, String payload)
     String senderId = doc["sender_id"] | devId;
     String commandName = doc["command"] | "";
 
+
     addKnownDevice(senderId);
 
     if (commandName.length() > 0)
     {
-        for (int i = 0; i < commandCount; ++i)
+        for (int i = 0; i < commandHandlers.size(); ++i)
         {
             if (commandHandlers[i].name == commandName)
             {
