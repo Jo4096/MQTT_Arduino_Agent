@@ -58,9 +58,9 @@ private:
     void _send_ping();
 
 public:
-    MQTT_Agent(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port = 1883, int pingPeriod = 30000);
-
-    void begin(bool enablePing = true);
+    MQTT_Agent();
+    void config(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port = 1883, int pingPeriod = 30000);
+    bool begin(bool enablePing = true);
     void loop();
     void addSubscriptionTopic(String topic);
     void publish(const String &topic, const String &message);
@@ -69,8 +69,14 @@ public:
     void setOnMessageCallback(std::function<void(String, String, String)> callback);
     void registerCommand(const String &name, std::function<void(String, String, JsonDocument &)> handler);
     const char *getDeviceId() { return deviceId; }
+    void removeCommand(String name);
+
+    std::vector<String> getCommands();
+    const std::vector<String> &getKnownDevices() const;
 };
 
 void default_PongResponse(String from, String topic, JsonDocument &doc);
+
+extern MQTT_Agent Agent;
 
 #endif
