@@ -2,21 +2,55 @@
 
 static MQTT_Agent *instance = nullptr;
 
-MQTT_Agent::MQTT_Agent(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port, int pingPeriod)
-    : ssid(ssid), password(password), mqttServer(mqttServer), mqttUsername(mqttUsername), mqttPassword(mqttPassword), deviceId(deviceId), mqttPort(port), pingPeriod(pingPeriod),
-      mqttClient(wifiClient)
+MQTT_Agent::MQTT_Agent(): mqttClient(wifiClient)
 {
     instance = this;
 }
 
-void MQTT_Agent::begin(bool enablePing)
+void MQTT_Agent::config(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port, int pingPeriod)
 {
+    this->knownDevices.clear();
+    this->subscribedTopics.clear();
+
+    this->ssid = ssid;
+    this->password = password;
+    this->mqttServer = mqttServer;
+    this->mqttUsername = mqttUsername;
+    this->mqttPassword = mqttPassword;
+    this->deviceId = deviceId;
+    this->mqttPort = port;
+    this->pingPeriod = pingPeriod;
+}
+
+bool MQTT_Agent::begin(bool enablePing)
+{
+    Serial.println("HELLO");
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        WiFi.disconnect(true);
+        delay(100);
+    }
+    Serial.println("HELLO2");
+    if (mqttClient.connected())
+    {
+        mqttClient.disconnect();
+    }
+    Serial.println("HELLO3");
+
     WiFi.begin(ssid, password);
     Serial.print("\n[INFO] A ligar a ");
     Serial.println(ssid);
 
+    unsigned long startTime = millis();
+    const unsigned long wifiTimeout = 10000; // 10 segundos
+
     while (WiFi.status() != WL_CONNECTED)
     {
+        if (millis() - startTime > wifiTimeout)
+        {
+            Serial.println("[ERRO] Timeout na ligação Wi-Fi.");
+            return false;
+        }
         delay(500);
         Serial.print(".");
     }
@@ -25,20 +59,30 @@ void MQTT_Agent::begin(bool enablePing)
     mqttClient.setServer(mqttServer, mqttPort);
     mqttClient.setCallback(MQTT_Agent::internalCallback);
 
+    startTime = millis();
+    const unsigned long mqttTimeout = 10000; // 10 segundos
+
     while (!mqttClient.connected())
     {
+        if (millis() - startTime > mqttTimeout)
+        {
+            Serial.println("[ERRO] Timeout na ligação MQTT.");
+            return false;
+        }
+
         Serial.println("[MQTT] A ligar...");
         if (mqttClient.connect(deviceId, mqttUsername, mqttPassword))
         {
             Serial.println("[MQTT] Ligado com sucesso.");
-            for (int i = 0; i < subscribedTopics.size(); ++i)
+            for (const auto &topic : subscribedTopics)
             {
-                if (subscribedTopics[i] != nullptr)
+                if (!topic.isEmpty())
                 {
-                    mqttClient.subscribe(subscribedTopics[i].c_str());
-                    Serial.printf("[MQTT] Subscrito a: %s\n", subscribedTopics[i].c_str());
+                    mqttClient.subscribe(topic.c_str());
+                    Serial.printf("[MQTT] Subscrito a: %s\n", topic.c_str());
                 }
             }
+            break;
         }
         else
         {
@@ -53,22 +97,30 @@ void MQTT_Agent::begin(bool enablePing)
         registerCommand("ping", [this](String from, String topic, JsonDocument &doc)
                         { this->_handle_ping_command(from, topic, doc); });
     }
-
-    bool alreadySubscribed = false;
-    for (int i = 0; i < subscribedTopics.size(); ++i)
+    else
     {
-        if (strcmp(subscribedTopics[i].c_str(), "devices/all/data") == 0)
+        removeCommand("ping");
+    }
+
+    // Subscrição garantida ao tópico de broadcast
+    bool alreadySubscribed = false;
+    for (const auto &topic : subscribedTopics)
+    {
+        if (topic == "devices/all/data")
         {
             alreadySubscribed = true;
             break;
         }
     }
+
     if (!alreadySubscribed)
     {
         addSubscriptionTopic("devices/all/data");
         mqttClient.subscribe("devices/all/data");
         Serial.println("[MQTT] Subscrito a: devices/all/data");
     }
+
+    return true;
 }
 
 void MQTT_Agent::loop()
@@ -134,6 +186,34 @@ void MQTT_Agent::registerCommand(const String &name, std::function<void(String, 
     }
 }
 
+void MQTT_Agent::removeCommand(String name)
+{
+    for (int i = 0; i < commandHandlers.size(); ++i)
+    {
+        if (commandHandlers[i].name == name)
+        {
+            commandHandlers.erase(commandHandlers.begin() + i);
+            return;
+        }
+    }
+}
+
+std::vector<String> MQTT_Agent::getCommands()
+{
+    std::vector<String> c;
+    c.reserve(commandHandlers.size());
+
+    for (size_t i = 0; i < commandHandlers.size(); ++i)
+        c.emplace_back(commandHandlers[i].name);
+
+    return c;
+}
+
+const std::vector<String> &MQTT_Agent::getKnownDevices() const
+{
+    return knownDevices;
+}
+
 void MQTT_Agent::internalCallback(char *topic, byte *payload, unsigned int length)
 {
     if (instance)
@@ -150,7 +230,7 @@ void MQTT_Agent::internalCallback(char *topic, byte *payload, unsigned int lengt
 
 void MQTT_Agent::addKnownDevice(const String &deviceId)
 {
-    if(strcmp(deviceId.c_str(), this->deviceId) == 0)
+    if (strcmp(deviceId.c_str(), this->deviceId) == 0)
     {
         return;
     }
@@ -201,7 +281,6 @@ void MQTT_Agent::handleMessage(String topic, String payload)
 
     String senderId = doc["sender_id"] | devId;
     String commandName = doc["command"] | "";
-
 
     addKnownDevice(senderId);
 
@@ -257,3 +336,6 @@ void default_PongResponse(String from, String topic, JsonDocument &doc)
     String message = doc["message"] | "sem mensagem";
     Serial.printf("[CMD] 'pong' recebido de %s: %s\n", from.c_str(), message.c_str());
 }
+
+
+MQTT_Agent Agent;
