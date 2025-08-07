@@ -7,7 +7,6 @@
 #include <functional>
 #include <vector>
 
-// Constantes
 #ifndef MAX_KNOWN_DEVICES
 #define MAX_KNOWN_DEVICES 10
 #endif
@@ -20,15 +19,12 @@
 #define MAX_COMMANDS 10
 #endif
 
-// Estrutura para os manipuladores de comandos
-struct CommandHandler
-{
+struct CommandHandler {
     String name;
     std::function<void(String, String, JsonDocument &)> handler;
 };
 
-class MQTT_Agent
-{
+class MQTT_Agent {
 private:
     const char *ssid;
     const char *password;
@@ -53,24 +49,29 @@ private:
     void handleMessage(String topic, String payload);
     void addKnownDevice(const String &deviceId);
 
-    // Métodos internos para ping e pong
     void _handle_ping_command(String from, String topic, JsonDocument &doc);
     void _send_ping();
 
 public:
     MQTT_Agent();
-    void config(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port = 1883, int pingPeriod = 30000);
+    void config(const char *ssid, const char *password, const char *mqttServer,
+                const char *mqttUsername, const char *mqttPassword,
+                const char *deviceId, int port = 1883, int pingPeriod = 30000);
+
     bool begin(bool enablePing = true);
     void loop();
+    void stop();
+
     void addSubscriptionTopic(String topic);
     void publish(const String &topic, const String &message);
     void publishToDevice(const String &devId, const String &message);
     void publishToDeviceFormatted(const String &devId, const String &command, const String &message);
+
     void setOnMessageCallback(std::function<void(String, String, String)> callback);
     void registerCommand(const String &name, std::function<void(String, String, JsonDocument &)> handler);
-    const char *getDeviceId() { return deviceId; }
     void removeCommand(String name);
 
+    const char *getDeviceId() { return deviceId; }
     std::vector<String> getCommands();
     const std::vector<String> &getKnownDevices() const;
 };
