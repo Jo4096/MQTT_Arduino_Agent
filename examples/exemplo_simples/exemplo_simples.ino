@@ -17,12 +17,6 @@ const char* mqttUsername = "USER_NAME"; // Nome de usuário para o broker MQTT.
 const char* mqttPassword = "PASSWORD"; // Senha para o broker MQTT.
 const char* deviceId = "esp32_quarto"; // ID único para o seu dispositivo na rede.
 
-
-// --- Inicialização do Agente MQTT ---
-// Cria uma instância do agente MQTT com as credenciais definidas acima.
-// Verifica as variaveis no MQTT_Agent.hpp para mais informações, nomeadamente para poder definir ports e periodos de ping
-MQTT_Agent Agent(ssid, password, mqttServer, mqttUsername, mqttPassword, deviceId);
-
 // --- Callback para Respostas Padrão ---
 // Esta função é chamada sempre que uma mensagem é recebida no tópico de resposta.
 // "from" é o ID do dispositivo que enviou a mensagem.
@@ -105,7 +99,9 @@ void setup()
 {
   Serial.begin(115200); // Inicia a comunicação serial com um baud rate de 115200.
   while(!Serial){}; // Espera a porta serial estar pronta.
-    
+  
+  Agent.config(ssid, password, mqttServer, mqttUsername, mqttPassword,deviceId);
+
   // Adiciona os tópicos que o agente irá subscrever.
   // 1. Tópico para comandos gerais ("devices/all/data").
   Agent.addSubscriptionTopic("devices/all/data");
@@ -124,7 +120,7 @@ void setup()
     
   // Inicia o agente, conectando-se ao Wi-Fi e ao broker MQTT.
   // O parâmetro `true` habilita a funcionalidade de ping (default value: true).
-  Agent.begin(true);
+  Agent.begin();
 }
 
 
