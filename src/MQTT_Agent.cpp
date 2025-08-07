@@ -10,7 +10,6 @@ MQTT_Agent::MQTT_Agent(): mqttClient(wifiClient)
 void MQTT_Agent::config(const char *ssid, const char *password, const char *mqttServer, const char *mqttUsername, const char *mqttPassword, const char *deviceId, int port, int pingPeriod)
 {
     this->knownDevices.clear();
-    this->subscribedTopics.clear();
 
     this->ssid = ssid;
     this->password = password;
@@ -24,18 +23,16 @@ void MQTT_Agent::config(const char *ssid, const char *password, const char *mqtt
 
 bool MQTT_Agent::begin(bool enablePing)
 {
-    Serial.println("HELLO");
+    stop();
     if (WiFi.status() == WL_CONNECTED)
     {
         WiFi.disconnect(true);
         delay(100);
     }
-    Serial.println("HELLO2");
     if (mqttClient.connected())
     {
         mqttClient.disconnect();
     }
-    Serial.println("HELLO3");
 
     WiFi.begin(ssid, password);
     Serial.print("\n[INFO] A ligar a ");
@@ -48,7 +45,7 @@ bool MQTT_Agent::begin(bool enablePing)
     {
         if (millis() - startTime > wifiTimeout)
         {
-            Serial.println("[ERRO] Timeout na ligação Wi-Fi.");
+            Serial.println("\n[ERRO] Timeout na ligação Wi-Fi.");
             return false;
         }
         delay(500);
@@ -132,6 +129,15 @@ void MQTT_Agent::loop()
         lastPingTime = millis();
     }
 }
+
+void MQTT_Agent::stop() {
+    if (mqttClient.connected()) {
+        mqttClient.disconnect();
+    }
+    WiFi.disconnect(true);  // true para desligar também o STA mode
+    Serial.println("[MQTT] Ligação terminada.");
+}
+
 
 void MQTT_Agent::addSubscriptionTopic(String topic)
 {
